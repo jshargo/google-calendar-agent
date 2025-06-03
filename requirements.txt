@@ -1,0 +1,13 @@
+python-dotenv
+pydantic
+pydantic-ai
+
+google-api-python-client
+google-auth
+google-auth-oauthlib
+python-dateutil
+
+asyncpg
+psycopg2
+uvicorn
+supabase
