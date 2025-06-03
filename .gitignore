@@ -10,8 +10,8 @@ __pycache__/
 
 client_secret.json
 
-token-files/
-token_files/
+token-files
+token_files
 
 .vscode/
 .idea/
