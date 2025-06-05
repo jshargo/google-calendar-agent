@@ -56,11 +56,12 @@ In this project I used Supabase to store all chats sent to, and recieved by the 
     *   Paste and run the following SQL to create the `chats` table:
 
         ```sql
-        CREATE TABLE chats (
-            chat_id VARCHAR,
-            message VARCHAR,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
+        CREATE TABLE public.chats (
+            chat_id   uuid         PRIMARY KEY,
+            message   text         NOT NULL,
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            response  text         NOT NULL
+            );
         ```
 ### 6. Set Up Environment Variables
 
