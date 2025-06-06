@@ -9,5 +9,6 @@ python-dateutil
 
 asyncpg
 psycopg2
-uvicorn
+uvicorn[standard]
 supabase
+fastapi
