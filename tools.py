@@ -20,21 +20,67 @@ CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar']
 def parse_datetime_for_api(datetime_str: str, default_time: Optional[time] = None, prefer_future: bool = True) -> Optional[str]:
     """
     Parses a datetime string into a timezone-aware ISO 8601 string suitable for Google Calendar API.
-    If only a date is provided, attaches a default_time (e.g., start/end of day).
+    Handles common relative terms like "today", "tomorrow", "yesterday", "now" using a dynamic approach.
+    If only a date is provided (or implied by a relative term), attaches a default_time (e.g., start/end of day).
     """
+    local_tz = gettz()
+    now_local = datetime.now(local_tz)
+    today_local_date = now_local.date()
+
+    def _combine_dt(date_part, time_part):
+        return datetime.combine(date_part, time_part, tzinfo=local_tz)
+
+    # Handlers for relative date strings
+    # Lambdas capture local_tz, now_local, today_local_date from the outer scope
+    relative_date_handlers = {
+        "now": lambda: now_local,
+        "today": lambda: _combine_dt(today_local_date, time.min),
+        "start of today": lambda: _combine_dt(today_local_date, time.min),
+        "beginning of today": lambda: _combine_dt(today_local_date, time.min),
+        "end of today": lambda: _combine_dt(today_local_date, time.max),
+        "tonight": lambda: _combine_dt(today_local_date, time.max), # Assumes 'tonight' means end of current day for API calls
+        "tomorrow": lambda: _combine_dt(today_local_date + timedelta(days=1), time.min),
+        "start of tomorrow": lambda: _combine_dt(today_local_date + timedelta(days=1), time.min),
+        "beginning of tomorrow": lambda: _combine_dt(today_local_date + timedelta(days=1), time.min),
+        "end of tomorrow": lambda: _combine_dt(today_local_date + timedelta(days=1), time.max),
+        "yesterday": lambda: _combine_dt(today_local_date - timedelta(days=1), time.min),
+        "start of yesterday": lambda: _combine_dt(today_local_date - timedelta(days=1), time.min),
+        "beginning of yesterday": lambda: _combine_dt(today_local_date - timedelta(days=1), time.min),
+        "end of yesterday": lambda: _combine_dt(today_local_date - timedelta(days=1), time.max),
+    }
+
+    normalized_datetime_str = datetime_str.lower().strip().replace("_", " ")
+    dt_obj: Optional[datetime] = None
+
+    handler = relative_date_handlers.get(normalized_datetime_str)
+    if handler:
+        dt_obj = handler()
+    
+    if dt_obj:
+        # If the handler resulted in a start-of-day (midnight) datetime,
+        # and a specific default_time is provided (e.g., time.max for end-of-day),
+        # apply that default_time.
+        if dt_obj.time() == time.min and default_time:
+            dt_obj = datetime.combine(dt_obj.date(), default_time, tzinfo=dt_obj.tzinfo)
+        return dt_obj.isoformat()
+
+    # If not a recognized relative string, try parsing with dateutil.parser
     try:
-        local_tz = gettz()
-        dt = dateutil.parser.parse(datetime_str, tzinfos={"local": local_tz})
+        dt_parsed = dateutil.parser.parse(datetime_str, tzinfos={"local": local_tz})
 
-        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-            dt = dt.replace(tzinfo=local_tz)
+        # Ensure timezone information is present
+        if dt_parsed.tzinfo is None or dt_parsed.tzinfo.utcoffset(dt_parsed) is None:
+            dt_parsed = dt_parsed.replace(tzinfo=local_tz)
         
-        if dt.time() == time(0,0,0) and default_time:
-            dt = datetime.combine(dt.date(), default_time, tzinfo=dt.tzinfo)
+        # If parsing resulted in a start-of-day (midnight) datetime (e.g. from "2023-10-10"),
+        # and a specific default_time is provided, apply it.
+        if dt_parsed.time() == time.min and default_time:
+            dt_parsed = datetime.combine(dt_parsed.date(), default_time, tzinfo=dt_parsed.tzinfo)
 
-        return dt.isoformat()
+        return dt_parsed.isoformat()
     except (ValueError, TypeError, OverflowError) as e:
-        print(f"Error parsing date string '{datetime_str}': {e}")
+        # It's useful to log the original string that failed parsing
+        print(f"Error parsing date string '{datetime_str}' with dateutil.parser: {e}")
         return None
 
 class CalendarEventInput(BaseModel):
