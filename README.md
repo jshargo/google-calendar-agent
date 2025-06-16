@@ -91,6 +91,49 @@ Once all setup steps are complete:
     ```
 4.  Type your natural language queries to interact with your Google Calendar.
 
+## REST API (for Vapi and other clients)
+
+The project now exposes the agent as a FastAPI service (see `api.py`).
+
+### Local development
+```bash
+uvicorn api:app --reload --port 8000
+```
+
+### End-points
+| Method | Path  | Body / Query | Description |
+|--------|-------|--------------|-------------|
+| GET    | `/`   | –            | Simple health-check (returns `{"status": "ok"}`) |
+| POST   | `/chat` | `{ "message": "<user text>", "session_id": "<optional>"}` | Sends a transcript to the agent and returns `{ "session_id": "<id>", "response": "<agent reply>" }` |
+
+
+## Vapi workflow integration
+1.  Deploy the FastAPI service (Railway.app, Fly.io, Render.com, etc.) and note the public URL. For a quick test you can use
+    ```bash
+    uvicorn api:app --host 0.0.0.0 --port 8000
+    ```
+2.  Inside the Vapi dashboard create (or edit) an **Assistant** and set the **Webhook (Server URL)** to:
+
+    ```
+    https://YOUR_DEPLOYMENT_DOMAIN/chat
+    ```
+3.  In your **Workflow** add a **Webhook** or **Tool Call** node right after the automatic transcription step. Configure it to POST the transcript text as JSON:
+
+    ```json
+    {
+      "message": "{{transcript}}"
+    }
+    ```
+4.  Map the `response` field from the webhook result to the next **Say** node so the assistant speaks the agent’s answer back to the caller.
+5.  (Optional) Pass the `session_id` returned from the first call in subsequent requests so conversation context is preserved.
+
+This simple loop gives you:
+Caller ➜ Vapi transcribes ➜ POST `/chat` ➜ Calendar agent ➜ HTTP response ➜ Vapi speaks back.
+
+Feel free to expand the workflow with additional logic (error branches, confirmations, etc.).
+
+---
+
 ## Usage Examples
 
 Here are a few examples of how you can interact with the agent:
