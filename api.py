@@ -1,13 +1,5 @@
-"""FastAPI interface exposing the calendar agent as an HTTP endpoint.
-
-This service enables integrations (e.g., Vapi workflows) to send the user's
-spoken transcript to the agent via `/chat` and receive a text response that can
-be converted back to speech.
-"""
-
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Optional, Any
 
@@ -15,23 +7,19 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
-from agent import calendar_agent, insert_to_db, SESSION_CHAT_ID  # Re-use existing agent objects
+from agent import calendar_agent, insert_to_db, SESSION_CHAT_ID 
 
-# Configure logging to be verbose, similar to agent.py
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()] # Ensure logs go to console
+    handlers=[logging.StreamHandler()] 
 )
 logger = logging.getLogger(__name__)
 
-
-# Keep request / response history in memory for the duration of the process
 chat_history: Any | None = None
 
 app = FastAPI(title="Google Calendar Voice Agent API", version="1.0.0")
 
-# Allow requests from anywhere (use a tighter list in production)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,15 +29,11 @@ app.add_middleware(
 
 
 class ChatRequest(BaseModel):
-    """Schema for inbound chat messages sent by Vapi (or any client)."""
-
     message: str
     session_id: Optional[str] = None  # Optional resume of an existing session
 
 
 class ChatResponse(BaseModel):
-    """Schema for agent responses."""
-
     session_id: str
     response: str
 
@@ -116,3 +100,12 @@ async def chat_endpoint(request: Request) -> ChatResponse:
     except Exception as exc: 
         logger.error(f"An unexpected error occurred in /chat endpoint: {str(exc)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "api:app",
+        host="0.0.0.0",
+        port=8001,
+        reload=True
+    )
