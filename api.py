@@ -109,3 +109,5 @@ if __name__ == "__main__":
         port=8001,
         reload=True
     )
+
+# Run: cloudflared tunnel run <TUNNEL_ID>
